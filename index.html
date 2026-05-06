@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WatchRoom</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0f13;
+    --sidebar: #13141a;
+    --panel: #1a1b23;
+    --surface: #22232e;
+    --border: #2e2f3d;
+    --accent: #7c6aff;
+    --accent2: #ff6a8e;
+    --green: #3ddc84;
+    --text: #e8e9f0;
+    --muted: #7b7d8e;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; display: flex; }
+
+  /* SIDEBAR */
+  .sidebar { width: 220px; background: var(--sidebar); display: flex; flex-direction: column; border-right: 1px solid var(--border); flex-shrink: 0; }
+  .server-header { padding: 14px 14px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+  .server-icon { width: 34px; height: 34px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+  .server-name { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 14px; }
+  .section-label { padding: 14px 12px 6px; font-size: 10px; font-weight: 600; letter-spacing: 1.5px; color: var(--muted); text-transform: uppercase; display: flex; align-items: center; justify-content: space-between; }
+  .add-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 18px; transition: color 0.2s; }
+  .add-btn:hover { color: var(--text); }
+  .room-list { flex: 1; overflow-y: auto; padding: 0 8px; }
+  .room-list::-webkit-scrollbar { width: 3px; }
+  .room-list::-webkit-scrollbar-thumb { background: var(--border); }
+  .room-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; cursor: pointer; transition: background 0.15s; margin-bottom: 2px; position: relative; }
+  .room-item:hover { background: var(--surface); }
+  .room-item.active { background: var(--surface); }
+  .room-item.active::before { content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 3px; height: 60%; background: var(--accent); border-radius: 0 3px 3px 0; }
+  .room-icon { font-size: 13px; color: var(--muted); }
+  .room-name { font-size: 13px; color: var(--muted); flex: 1; }
+  .room-item.active .room-name, .room-item:hover .room-name { color: var(--text); }
+
+  .members-section { padding: 0 8px 8px; }
+  .member-item { display: flex; align-items: center; gap: 8px; padding: 5px 10px; border-radius: 6px; }
+  .member-dot { width: 8px; height: 8px; background: var(--green); border-radius: 50%; flex-shrink: 0; }
+  .member-name { font-size: 12px; color: var(--muted); }
+
+  .user-panel { padding: 10px 12px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 10px; background: #0f1015; }
+  .avatar { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; position: relative; flex-shrink: 0; }
+  .avatar::after { content: ''; position: absolute; bottom: -1px; right: -1px; width: 9px; height: 9px; background: var(--green); border-radius: 50%; border: 2px solid #0f1015; }
+  .user-info { flex: 1; min-width: 0; }
+  .user-name-display { font-size: 12px; font-weight: 600; }
+  .user-tag { font-size: 10px; color: var(--muted); }
+
+  /* MAIN */
+  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .video-area { flex: 1; background: #09090d; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  #yt-frame { width: 100%; height: 100%; border: none; display: none; }
+  .placeholder { display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; padding: 40px; }
+  .placeholder-icon { width: 72px; height: 72px; background: var(--surface); border-radius: 18px; display: flex; align-items: center; justify-content: center; font-size: 32px; border: 1px solid var(--border); }
+  .placeholder h2 { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; }
+  .placeholder p { font-size: 13px; color: var(--muted); max-width: 280px; line-height: 1.6; }
+
+  .sync-badge { position: absolute; top: 12px; right: 12px; background: rgba(61,220,132,0.15); border: 1px solid rgba(61,220,132,0.3); color: var(--green); font-size: 11px; padding: 4px 10px; border-radius: 20px; display: none; align-items: center; gap: 5px; }
+  .sync-dot { width: 6px; height: 6px; background: var(--green); border-radius: 50%; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .url-bar { background: var(--panel); border-top: 1px solid var(--border); padding: 10px 14px; display: flex; gap: 8px; align-items: center; }
+  .url-input { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; font-size: 13px; color: var(--text); font-family: 'DM Sans', sans-serif; outline: none; transition: border-color 0.2s; }
+  .url-input:focus { border-color: var(--accent); }
+  .url-input::placeholder { color: var(--muted); }
+  .play-btn { background: var(--accent); border: none; border-radius: 8px; padding: 9px 16px; color: white; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: opacity 0.2s; white-space: nowrap; }
+  .play-btn:hover { opacity: 0.85; }
+
+  /* CHAT */
+  .chat-panel { width: 270px; background: var(--panel); display: flex; flex-direction: column; border-left: 1px solid var(--border); flex-shrink: 0; }
+  .chat-header { padding: 12px 14px; border-bottom: 1px solid var(--border); font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+  .chat-live { width: 7px; height: 7px; background: var(--accent2); border-radius: 50%; animation: pulse 2s infinite; }
+  .messages { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .messages::-webkit-scrollbar { width: 3px; }
+  .messages::-webkit-scrollbar-thumb { background: var(--border); }
+  .msg { display: flex; gap: 7px; animation: fadeUp 0.2s ease; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+  .msg-av { width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .msg-body { flex: 1; min-width: 0; }
+  .msg-meta { display: flex; align-items: baseline; gap: 5px; margin-bottom: 1px; }
+  .msg-user { font-size: 12px; font-weight: 600; }
+  .msg-time { font-size: 10px; color: var(--muted); }
+  .msg-text { font-size: 13px; color: #c5c7d8; line-height: 1.5; word-break: break-word; }
+  .system-msg { text-align: center; font-size: 11px; color: var(--muted); padding: 3px 0; font-style: italic; }
+  .chat-input-area { padding: 10px; border-top: 1px solid var(--border); display: flex; gap: 7px; }
+  .chat-input { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 13px; color: var(--text); font-family: 'DM Sans', sans-serif; outline: none; transition: border-color 0.2s; resize: none; height: 36px; }
+  .chat-input:focus { border-color: var(--accent); }
+  .chat-input::placeholder { color: var(--muted); }
+  .send-btn { background: var(--accent); border: none; border-radius: 8px; width: 36px; color: white; cursor: pointer; font-size: 14px; transition: opacity 0.2s; flex-shrink: 0; }
+  .send-btn:hover { opacity: 0.8; }
+
+  /* MODAL */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: flex; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(6px); }
+  .modal { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 28px; width: 360px; animation: slideUp 0.25s ease; }
+  @keyframes slideUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+  .modal-logo { font-size: 36px; margin-bottom: 12px; }
+  .modal h3 { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; margin-bottom: 6px; }
+  .modal p { font-size: 13px; color: var(--muted); margin-bottom: 20px; line-height: 1.5; }
+  .modal label { display: block; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  .modal input { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-size: 14px; color: var(--text); font-family: 'DM Sans', sans-serif; outline: none; transition: border-color 0.2s; margin-bottom: 14px; }
+  .modal input:focus { border-color: var(--accent); }
+  .modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
+  .btn-cancel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 9px 16px; color: var(--muted); cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 13px; }
+  .btn-cancel:hover { color: var(--text); }
+  .btn-confirm { background: var(--accent); border: none; border-radius: 8px; padding: 9px 18px; color: white; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; transition: opacity 0.2s; }
+  .btn-confirm:hover { opacity: 0.85; }
+
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 9px 16px; font-size: 13px; z-index: 200; animation: toastIn 0.3s ease; pointer-events: none; white-space: nowrap; }
+  @keyframes toastIn { from{opacity:0;transform:translateX(-50%) translateY(8px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+
+  .ws-status { font-size: 10px; padding: 2px 8px; border-radius: 10px; margin-left: auto; }
+  .ws-status.connected { background: rgba(61,220,132,0.15); color: var(--green); }
+  .ws-status.disconnected { background: rgba(255,106,142,0.15); color: var(--accent2); }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="server-header">
+    <div class="server-icon">🎬</div>
+    <div class="server-name">WatchRoom</div>
+  </div>
+
+  <div class="section-label">
+    ห้อง
+    <button class="add-btn" onclick="openNewRoom()" title="สร้างห้องใหม่">+</button>
+  </div>
+  <div class="room-list" id="roomList">
+    <div class="room-item active" onclick="joinRoom('ห้องหลัก', this)">
+      <span class="room-icon">🎬</span>
+      <span class="room-name">ห้องหลัก</span>
+    </div>
+    <div class="room-item" onclick="joinRoom('ดูอนิเมะ', this)">
+      <span class="room-icon">🎬</span>
+      <span class="room-name">ดูอนิเมะ</span>
+    </div>
+    <div class="room-item" onclick="joinRoom('หนังคืนศุกร์', this)">
+      <span class="room-icon">🎬</span>
+      <span class="room-name">หนังคืนศุกร์</span>
+    </div>
+  </div>
+
+  <div class="section-label">ออนไลน์</div>
+  <div class="members-section" id="membersList"></div>
+
+  <div class="user-panel">
+    <div class="avatar" id="userAv">?</div>
+    <div class="user-info">
+      <div class="user-name-display" id="userNameDisplay">—</div>
+      <div class="user-tag">ออนไลน์</div>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="video-area">
+    <iframe id="yt-frame" allowfullscreen allow="autoplay; encrypted-media; picture-in-picture"></iframe>
+    <div class="placeholder" id="placeholder">
+      <div class="placeholder-icon">▶️</div>
+      <h2>ยังไม่มีวิดีโอ</h2>
+      <p>วางลิงก์ YouTube ด้านล่าง แล้วทุกคนในห้องจะเห็นพร้อมกันเลย!</p>
+    </div>
+    <div class="sync-badge" id="syncBadge"><div class="sync-dot"></div> LIVE SYNC</div>
+  </div>
+  <div class="url-bar">
+    <input class="url-input" id="urlInput" placeholder="วางลิงก์ YouTube... เช่น https://youtube.com/watch?v=..." />
+    <button class="play-btn" onclick="playVideo()">▶ เปิดให้ทุกคน</button>
+  </div>
+</div>
+
+<div class="chat-panel">
+  <div class="chat-header">
+    <div class="chat-live"></div>
+    แชทห้อง
+    <span class="ws-status disconnected" id="wsStatus">ออฟไลน์</span>
+  </div>
+  <div class="messages" id="messages"></div>
+  <div class="chat-input-area">
+    <textarea class="chat-input" id="chatInput" placeholder="พิมพ์ข้อความ..." rows="1"></textarea>
+    <button class="send-btn" onclick="sendChat()">➤</button>
+  </div>
+</div>
+
+<!-- NAME MODAL -->
+<div class="modal-overlay" id="nameModal">
+  <div class="modal">
+    <div class="modal-logo">🎬</div>
+    <h3>ยินดีต้อนรับ!</h3>
+    <p>ดูยูทูปพร้อมกันแบบ sync ได้เลย ไม่มีจำกัดเวลา</p>
+    <label>ชื่อของคุณ</label>
+    <input type="text" id="nameInput" placeholder="เช่น Pom, Nong..." maxlength="20" />
+    <label>ห้องที่ต้องการเข้า</label>
+    <input type="text" id="roomInput" value="ห้องหลัก" maxlength="30" />
+    <div class="modal-btns">
+      <button class="btn-confirm" onclick="enterRoom()">เข้าห้อง →</button>
+    </div>
+  </div>
+</div>
+
+<!-- NEW ROOM MODAL -->
+<div class="modal-overlay" id="newRoomModal" style="display:none">
+  <div class="modal">
+    <h3>🎬 สร้างห้องใหม่</h3>
+    <label>ชื่อห้อง</label>
+    <input type="text" id="newRoomInput" placeholder="เช่น หนังคืนนี้..." maxlength="30" />
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeNewRoom()">ยกเลิก</button>
+      <button class="btn-confirm" onclick="createRoom()">สร้าง</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let ws = null;
+let userName = '';
+let currentRoom = '';
+let player = null;
+let isSyncing = false;
+
+const colors = [
+  ['#7c6aff','#b06aff'], ['#ff6a8e','#ff9a6a'],
+  ['#3ddc84','#6affb0'], ['#6aaeff','#6affff'], ['#ffd96a','#ffb96a'],
+];
+function getColor(name) {
+  let h = 0; for (let c of name) h += c.charCodeAt(0);
+  return colors[h % colors.length];
+}
+
+// YouTube IFrame API
+const tag = document.createElement('script');
+tag.src = 'https://www.youtube.com/iframe_api';
+document.head.appendChild(tag);
+
+function onYouTubeIframeAPIReady() { /* ready */ }
+
+function loadYT(videoId, startTime = 0) {
+  document.getElementById('placeholder').style.display = 'none';
+  document.getElementById('yt-frame').style.display = 'none';
+  document.getElementById('syncBadge').style.display = 'flex';
+
+  if (player) {
+    player.destroy();
+    player = null;
+  }
+
+  // Recreate iframe container
+  const area = document.querySelector('.video-area');
+  let div = document.getElementById('yt-div');
+  if (!div) {
+    div = document.createElement('div');
+    div.id = 'yt-div';
+    div.style.cssText = 'width:100%;height:100%;';
+    area.insertBefore(div, area.querySelector('.sync-badge'));
+  }
+
+  player = new YT.Player('yt-div', {
+    videoId,
+    playerVars: { autoplay: 1, rel: 0, start: Math.floor(startTime) },
+    events: {
+      onStateChange: onPlayerStateChange,
+    }
+  });
+}
+
+function onPlayerStateChange(e) {
+  if (isSyncing || !ws || ws.readyState !== 1) return;
+  const t = player.getCurrentTime();
+  if (e.data === YT.PlayerState.PLAYING) {
+    ws.send(JSON.stringify({ type: 'play', currentTime: t }));
+  } else if (e.data === YT.PlayerState.PAUSED) {
+    ws.send(JSON.stringify({ type: 'pause', currentTime: t }));
+  }
+}
+
+function extractYTId(url) {
+  url = url.trim();
+  let m = url.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/);
+  if (m) return m[1];
+  if (/^[a-zA-Z0-9_-]{11}$/.test(url)) return url;
+  return null;
+}
+
+function playVideo() {
+  const url = document.getElementById('urlInput').value.trim();
+  if (!url) { showToast('ใส่ลิงก์ YouTube ก่อนนะครับ'); return; }
+  const vid = extractYTId(url);
+  if (!vid) { showToast('ลิงก์ไม่ถูกต้อง ลองใหม่นะครับ'); return; }
+  if (ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({ type: 'play_video', videoId: vid, currentTime: 0 }));
+    loadYT(vid, 0);
+  } else {
+    loadYT(vid, 0);
+    showToast('ไม่ได้เชื่อมต่อ server — เล่นแบบออฟไลน์');
+  }
+}
+
+function connectWS(room, name) {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}`);
+
+  ws.onopen = () => {
+    setStatus(true);
+    ws.send(JSON.stringify({ type: 'join', roomId: room, userName: name }));
+  };
+
+  ws.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    switch (data.type) {
+      case 'room_state':
+        if (data.videoId) loadYT(data.videoId, data.currentTime);
+        updateMembers(data.members);
+        break;
+      case 'play_video':
+        loadYT(data.videoId, data.currentTime);
+        addSystem(`${data.by} เปิดวิดีโอใหม่`);
+        break;
+      case 'play':
+        isSyncing = true;
+        if (player && player.seekTo) { player.seekTo(data.currentTime, true); player.playVideo(); }
+        setTimeout(() => isSyncing = false, 500);
+        break;
+      case 'pause':
+        isSyncing = true;
+        if (player && player.pauseVideo) { player.seekTo(data.currentTime, true); player.pauseVideo(); }
+        setTimeout(() => isSyncing = false, 500);
+        break;
+      case 'seek':
+        isSyncing = true;
+        if (player && player.seekTo) player.seekTo(data.currentTime, true);
+        setTimeout(() => isSyncing = false, 500);
+        break;
+      case 'chat':
+        addMessage(data.userName, data.text, data.time);
+        break;
+      case 'system':
+        addSystem(data.text);
+        break;
+      case 'members':
+        updateMembers(data.members);
+        break;
+    }
+  };
+
+  ws.onclose = () => { setStatus(false); setTimeout(() => connectWS(room, name), 3000); };
+  ws.onerror = () => setStatus(false);
+}
+
+function setStatus(connected) {
+  const el = document.getElementById('wsStatus');
+  el.textContent = connected ? 'ออนไลน์' : 'ออฟไลน์';
+  el.className = 'ws-status ' + (connected ? 'connected' : 'disconnected');
+}
+
+function updateMembers(members) {
+  const el = document.getElementById('membersList');
+  el.innerHTML = members.map(m => `
+    <div class="member-item">
+      <div class="member-dot"></div>
+      <span class="member-name">${m}</span>
+    </div>
+  `).join('');
+}
+
+function enterRoom() {
+  const n = document.getElementById('nameInput').value.trim();
+  const r = document.getElementById('roomInput').value.trim() || 'ห้องหลัก';
+  if (!n) { document.getElementById('nameInput').focus(); return; }
+  userName = n; currentRoom = r;
+  document.getElementById('nameModal').style.display = 'none';
+  document.getElementById('userNameDisplay').textContent = n;
+  const c = getColor(n);
+  const av = document.getElementById('userAv');
+  av.style.background = `linear-gradient(135deg, ${c[0]}, ${c[1]})`;
+  av.textContent = n[0].toUpperCase();
+  joinRoom(r);
+  connectWS(r, n);
+}
+
+function joinRoom(roomId, el) {
+  currentRoom = roomId;
+  document.querySelectorAll('.room-item').forEach(r => r.classList.remove('active'));
+  if (el) el.classList.add('active');
+  if (ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({ type: 'join', roomId, userName }));
+  }
+}
+
+function openNewRoom() { document.getElementById('newRoomModal').style.display = 'flex'; }
+function closeNewRoom() { document.getElementById('newRoomModal').style.display = 'none'; }
+
+function createRoom() {
+  const name = document.getElementById('newRoomInput').value.trim();
+  if (!name) return;
+  const list = document.getElementById('roomList');
+  const div = document.createElement('div');
+  div.className = 'room-item';
+  div.innerHTML = `<span class="room-icon">🎬</span><span class="room-name">${name}</span>`;
+  div.onclick = () => joinRoom(name, div);
+  list.appendChild(div);
+  closeNewRoom();
+  joinRoom(name, div);
+}
+
+function addMessage(user, text, time) {
+  const box = document.getElementById('messages');
+  const c = getColor(user);
+  const el = document.createElement('div');
+  el.className = 'msg';
+  el.innerHTML = `
+    <div class="msg-av" style="background:linear-gradient(135deg,${c[0]},${c[1]})">${user[0].toUpperCase()}</div>
+    <div class="msg-body">
+      <div class="msg-meta"><span class="msg-user" style="color:${c[0]}">${user}</span><span class="msg-time">${time}</span></div>
+      <div class="msg-text">${text.replace(/</g,'&lt;')}</div>
+    </div>`;
+  box.appendChild(el);
+  box.scrollTop = box.scrollHeight;
+}
+
+function addSystem(text) {
+  const box = document.getElementById('messages');
+  const el = document.createElement('div');
+  el.className = 'system-msg';
+  el.textContent = '— ' + text + ' —';
+  box.appendChild(el);
+  box.scrollTop = box.scrollHeight;
+}
+
+function sendChat() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  if (ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({ type: 'chat', text }));
+  } else {
+    addMessage(userName, text, new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}));
+  }
+}
+
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2500);
+}
+
+document.getElementById('chatInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+});
+document.getElementById('urlInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') playVideo();
+});
+document.getElementById('nameInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') enterRoom();
+});
+
+setTimeout(() => document.getElementById('nameInput').focus(), 200);
+</script>
+</body>
+</html>
